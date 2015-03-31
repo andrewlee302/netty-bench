@@ -77,6 +77,7 @@ public class SentenceSocketClient {
                         if(0 == counter % flushNum)
                             channel.flush();
                     }
+                    channel.writeAndFlush("end\n");
                 } catch (InterruptedException e) {
                     e.printStackTrace();
                 } finally {

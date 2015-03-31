@@ -42,7 +42,7 @@ public class DiscardServer {
                         @Override
                         protected void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline pipeline = ch.pipeline();
-                            pipeline.addLast("frameDecoder", new LineBasedFrameDecoder(1024 * 1024));
+                            pipeline.addLast("frameDecoder", new LineBasedFrameDecoder(1024 * 1024, true, true	));
                             pipeline.addLast("stringDecoder", new StringDecoder(CharsetUtil.UTF_8));
                             pipeline.addLast("stringEncoder", new StringEncoder(CharsetUtil.UTF_8));
                             
@@ -56,13 +56,17 @@ public class DiscardServer {
                                 }
                                 @Override
                                 protected void channelRead0(ChannelHandlerContext ctx, Object msg) throws Exception {
-                                    if(++counter>=messageNum){
-                                        ctx.close();
+                                	String s = (String)msg;
+                                	if(s.contains("end") || ++counter>=messageNum){
+                                		ctx.close();
                                         System.out.println((System.currentTimeMillis()-start)/1000.0+"s");
                                         System.out.println("counter = " + counter);
                                     }
                                 }
-                                
+                                @Override
+								public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause){
+									System.out.println(cause);
+								}
                             });
                             
                         }

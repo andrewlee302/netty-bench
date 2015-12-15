@@ -2,8 +2,8 @@ package bench;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import com.sun.xml.internal.ws.Closeable;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
 
 import bench.NettyCommContext.NettyCommServer;
 import io.netty.bootstrap.Bootstrap;
@@ -20,22 +20,31 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.LineBasedFrameDecoder;
-import io.netty.handler.codec.string.StringDecoder;
-import io.netty.handler.codec.string.StringEncoder;
-import io.netty.util.CharsetUtil;
-import sun.nio.cs.HistoricallyNamedCharset;
 
 public class NettyCommContext {
 	Channel channel;
+	BlockingQueue<byte[]> recvQueue;
+	ByteBufferMessageDecoder decoder;
+	ByteRecvHandler recvHandler;
+
+	public NettyCommContext(String hostname, int port, boolean isServer) {
+		recvQueue = new LinkedBlockingQueue<byte[]>();
+		decoder = new ByteBufferMessageDecoder(1);
+		recvHandler = new ByteRecvHandler(recvQueue);
+		if (isServer) {
+			this.channel = new NettyCommServer(hostname, port, decoder, recvHandler).chs.get(0);
+		} else {
+			this.channel = new NettyCommClient(hostname, port, decoder, recvHandler).channel;
+		}
+	}
 
 	class NettyCommClient {
 		Channel channel;
-		ByteBufferMessageDecoder decoder = new ByteBufferMessageDecoder(1);
 		EventLoopGroup group;
 
-		public NettyCommClient(String hostname, int port) {
-			group = new NioEventLoopGroup();			
+		public NettyCommClient(String hostname, int port,
+				final ByteBufferMessageDecoder decoder, final ByteRecvHandler recvHandler) {
+			group = new NioEventLoopGroup();
 			try {
 				Bootstrap b = new Bootstrap();
 				b.group(group).channel(NioSocketChannel.class)
@@ -44,7 +53,7 @@ public class NettyCommContext {
 							protected void initChannel(SocketChannel ch)
 									throws Exception {
 								ChannelPipeline pipeline = ch.pipeline();
-								pipeline.addLast(decoder);
+								pipeline.addLast(decoder, recvHandler);
 							}
 						});
 				channel = b.connect(hostname, port).sync().channel();
@@ -67,10 +76,12 @@ public class NettyCommContext {
 
 	class NettyCommServer {
 		List<Channel> chs; // only one client channel actually
-		ByteBufferMessageDecoder decoder = new ByteBufferMessageDecoder(this,
-				1);
 
-		public NettyCommServer(String hostname, int port) {
+		public NettyCommServer(String hostname, int port,
+				final ByteBufferMessageDecoder decoder, final ByteRecvHandler recvHandler) {
+			decoder.server = this;
+			decoder.isServer = true;
+
 			chs = new ArrayList<>();
 			EventLoopGroup bossGroup = new NioEventLoopGroup(1);
 			EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -83,7 +94,7 @@ public class NettyCommContext {
 							protected void initChannel(SocketChannel ch)
 									throws Exception {
 								ChannelPipeline pipeline = ch.pipeline();
-								pipeline.addLast(decoder);
+								pipeline.addLast(decoder, recvHandler);
 							}
 						});
 				Channel appCh = appServer.bind(port).sync().channel();
@@ -99,18 +110,33 @@ public class NettyCommContext {
 
 	}
 
-	public void Send(byte[] buf) {
-		channel.writeAndFlush(buf);
-
-		long start = System.currentTimeMillis();
-		double interval = (System.currentTimeMillis() - start) / 1000.0;
-//		System.out.println(interval + " s;" + (sendContent.getBytes().length
-//				* messageNum / 1024.0 / 1024 / interval) + " M/s");
-
+	// send and recv in blocking mode
+	public byte[] SendRecv(byte[] sendBuf) {
+		channel.writeAndFlush(sendBuf);
+		try {
+			return recvQueue.take();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		return null;
 	}
 
-	public void Recv(byte[] buf) {
+	// recv and send in blocking mode
+	public void RecvSend(byte[] sendBuf) {
+		try {
+			recvQueue.take();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+		channel.writeAndFlush(sendBuf);
+	}
 
+	public void Isend(byte[] sendBuf) {
+		channel.write(sendBuf);
+	}
+
+	public void resize(int size) {
+		decoder.resize(size);
 	}
 
 }
@@ -119,12 +145,6 @@ class ByteBufferMessageDecoder extends ByteToMessageDecoder {
 	int size;
 	NettyCommServer server;
 	boolean isServer;
-
-	public ByteBufferMessageDecoder(NettyCommServer server, int bufferSize) {
-		this.isServer = true;
-		this.server = server;
-		this.size = bufferSize;
-	}
 
 	public ByteBufferMessageDecoder(int bufferSize) {
 		this.isServer = false;
@@ -145,10 +165,25 @@ class ByteBufferMessageDecoder extends ByteToMessageDecoder {
 		}
 		byte[] buf = new byte[size];
 		in.readBytes(buf);
+		
 		out.add(buf);
 	}
 
 	public void resize(int size) {
 		this.size = size;
 	}
+}
+
+class ByteRecvHandler extends SimpleChannelInboundHandler<byte[]>{
+	BlockingQueue<byte[]> cachedRecvQueue;
+	public ByteRecvHandler(BlockingQueue<byte[]> cachedRecvQueue) {
+		this.cachedRecvQueue = cachedRecvQueue;
+	}
+
+	@Override
+	protected void channelRead0(ChannelHandlerContext ctx, byte[] msg)
+			throws Exception {
+		cachedRecvQueue.put(msg);	
+	}
+	
 }

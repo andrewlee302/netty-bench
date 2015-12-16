@@ -1,5 +1,7 @@
 package bench;
 
+import bench.NettyCommContext.NettyCommClient;
+
 public class Latency {
 
 	final static int MAX_MSG_SIZE = 1 << 22;
@@ -10,7 +12,7 @@ public class Latency {
 	static int skip = 1000;
 	static byte[] originSendBuffer;
 
-	public static void main(String[] args) {
+	public static void main(String[] args) throws InterruptedException {
 		if (args.length < 3) {
 			System.out.println("args: hostname port isServer");
 			return;
@@ -21,10 +23,40 @@ public class Latency {
 		boolean isServer = Boolean.parseBoolean(args[2]);
 		NettyCommContext ct = new NettyCommContext(hostname, port, isServer);
 		originSendBuffer = new byte[MAX_MSG_SIZE];
+		for(int i = 0; i< originSendBuffer.length;i++) {
+			originSendBuffer[i] = (byte)(i & 0xFF);
+		}
+		
+		if(!isServer){
+			System.out.println("Netty Latency Test");
+			System.out.printf("%-10s%20s\n", "# Size", "Latency (us)");
+		}
 
-		for (int size = 1; size < MAX_MSG_SIZE; size *= 2) {
+		// ======= warm up =========
+		int size = 1024;
+		ct.resize(size);
+		Thread.sleep(1000);
+		byte[] sendBuf = new byte[size];
+		System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
+		if (size > LARGE_MESSAGE_SIZE) {
+			loop = MAX_LOOP;
+			skip = MAX_SKIP;
+		}
+		if (!isServer) {
+			for (int i = 0; i < loop + skip; i++) {
+				ct.SendRecv(sendBuf);
+			}
+		} else {
+			for (int i = 0; i < loop + skip; i++) {
+				ct.RecvSend(sendBuf);
+			}
+		}
+		// ====================
+		
+		for (size = 1; size <= MAX_MSG_SIZE; size *= 2) {
 			ct.resize(size);
-			byte[] sendBuf = new byte[size];
+			Thread.sleep(1000);
+			sendBuf = new byte[size];
 			System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
 			if (size > LARGE_MESSAGE_SIZE) {
 				loop = MAX_LOOP;
@@ -38,13 +70,17 @@ public class Latency {
 					ct.SendRecv(sendBuf);
 				}
 				long end = System.currentTimeMillis();
-				double latency = (end - start) * 1e6 / (2.0 * loop);
-				System.out.printf("%-*d%*.*f\n", 10, size, 20, 2, latency);
+				double latency = (end - start) * 1e3 / (2.0 * loop);
+				System.out.printf("%-10d%20.2f\n", size, latency);
 			} else {
 				for (int i = 0; i < loop + skip; i++) {
 					ct.RecvSend(sendBuf);
 				}
 			}
 		}
+		if(!isServer) {
+			((NettyCommClient)ct.entity).close();
+		}
+		
 	}
 }

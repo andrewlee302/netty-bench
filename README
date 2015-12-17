@@ -1,4 +1,4 @@
-# Netty Point to Point Bandwidth & Latency Benchmark
+# Netty Point to Point Communication Bandwidth & Latency Benchmark
 It's inspired by pt2pt benchmark in [osu-micro-benchmarks](http://mvapich.cse.ohio-state.edu/benchmarks/). We give a table to describe the bandwidth and latency under the diffrent communicating block size from 1B to 4M. Now the supported netty version is 4.x.
 
 ## Bandwidth

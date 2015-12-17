@@ -41,18 +41,19 @@ public class NettyCommContext {
 			this.channel = ((NettyCommClient) entity).channel;
 		}
 	}
-	
-//	public NettyCommContext(String hostname, int port, boolean isServer, int size) {
-//		recvQueue = new LinkedBlockingQueue<byte[]>();
-//		decoder = new ByteBufferMessageDecoder(size);
-//		recvHandler = new ByteRecvHandler(recvQueue);
-//		if (isServer) {
-//			entity = new NettyCommServer(hostname, port, decoder, recvHandler);
-//		} else {
-//			entity = new NettyCommClient(hostname, port, decoder, recvHandler);
-//			this.channel = ((NettyCommClient) entity).channel;
-//		}
-//	}
+
+	// public NettyCommContext(String hostname, int port, boolean isServer, int
+	// size) {
+	// recvQueue = new LinkedBlockingQueue<byte[]>();
+	// decoder = new ByteBufferMessageDecoder(size);
+	// recvHandler = new ByteRecvHandler(recvQueue);
+	// if (isServer) {
+	// entity = new NettyCommServer(hostname, port, decoder, recvHandler);
+	// } else {
+	// entity = new NettyCommClient(hostname, port, decoder, recvHandler);
+	// this.channel = ((NettyCommClient) entity).channel;
+	// }
+	// }
 
 	class NettyCommClient {
 		Channel channel;
@@ -183,6 +184,33 @@ public class NettyCommContext {
 	}
 
 	public void Irecv() {
+		// nothing
+	}
+
+	public void RecvWaitall(int n) {
+		try {
+			for (int i = 0; i < n; i++) {
+				recvQueue.take();
+			}
+			channel.writeAndFlush(new byte[]{(byte)n}).sync();
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
+	}
+
+	// actually wait the peer to response
+	public void SendWaitall(int n) {
+		channel.flush();
+		try {
+			byte[] r = recvQueue.take();
+			if((int)(r[0]) == n){
+				return;
+			} else {
+				System.out.println("error");
+			}
+		} catch (InterruptedException e) {
+			e.printStackTrace();
+		}
 	}
 
 	public void resize(int size) {

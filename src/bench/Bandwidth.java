@@ -24,70 +24,84 @@ public class Bandwidth {
 		boolean isServer = Boolean.parseBoolean(args[2]);
 		NettyCommContext ct = new NettyCommContext(hostname, port, isServer);
 		originSendBuffer = new byte[MAX_MSG_SIZE];
-		for(int i = 0; i< originSendBuffer.length;i++) {
-			originSendBuffer[i] = (byte)(i & 0xFF);
+		for (int i = 0; i < originSendBuffer.length; i++) {
+			originSendBuffer[i] = (byte) (i & 0xFF);
 		}
-		
-		if(!isServer){
+
+		if (!isServer) {
 			System.out.println("Netty Bandwidth Test");
 			System.out.printf("%-10s%20s\n", "# Size", "Bandwidth (MB)");
 		}
 
 		// ======= warm up =========
 		int size = 1024;
-		ct.resize(size);
-		Thread.sleep(1000);
 		byte[] sendBuf = new byte[size];
 		System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
 		if (size > LARGE_MESSAGE_SIZE) {
 			loop = MAX_LOOP;
 			skip = MAX_SKIP;
 		}
+		if (isServer) {
+			ct.resize(size);
+		}
+		Thread.sleep(1000);
+		// NOTE: client decoding size is always 1 as initialized
 		if (!isServer) {
 			for (int i = 0; i < loop + skip; i++) {
-				ct.SendRecv(sendBuf);
+				if (i == skip)
+				for (int j = 0; j < window_size; j++) {
+					ct.Isend(sendBuf);
+				}
+				ct.SendWaitall(window_size);
 			}
 		} else {
 			for (int i = 0; i < loop + skip; i++) {
-				ct.RecvSend(sendBuf);
+				for (int j = 0; j < window_size; j++) {
+					ct.Irecv();
+				}
+				ct.RecvWaitall(window_size);
 			}
 		}
 		// ====================
-		
+
 		for (size = 1; size < MAX_MSG_SIZE; size *= 2) {
-			ct.resize(size);
-			Thread.sleep(1000);
 			sendBuf = new byte[size];
 			System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
 			if (size > LARGE_MESSAGE_SIZE) {
 				loop = MAX_LOOP;
 				skip = MAX_SKIP;
 			}
+			if (isServer) {
+				ct.resize(size);
+			}
+			Thread.sleep(1000);
+			// NOTE: client decoding size is always 1 as initialized
 			if (!isServer) {
 				long start = 0;
 				for (int i = 0; i < loop + skip; i++) {
 					if (i == skip)
 						start = System.currentTimeMillis();
 					for (int j = 0; j < window_size; j++) {
-						// TODO Isend
+						ct.Isend(sendBuf);
 					}
-					// TODO Waitall and recv
+					ct.SendWaitall(window_size);
 				}
 				long end = System.currentTimeMillis();
-				double tmp = size * 1e3 /((end - start) * 1e6 * window_size * loop);
+				double tmp = size * 1e3 * window_size * loop
+						/ ((double) (end - start) * 1e6);
 				System.out.printf("%-10d%20.2f\n", size, tmp);
 			} else {
 				for (int i = 0; i < loop + skip; i++) {
-					for(int j = 0; j < window_size; j++) {
-						// TODO Irecv
+					for (int j = 0; j < window_size; j++) {
+						ct.Irecv();
 					}
-					// TODO waitall and send
+					ct.RecvWaitall(window_size);
 				}
 			}
 		}
-		if(!isServer) {
-			((NettyCommClient)ct.entity).close();
+		if (!isServer) {
+			((NettyCommClient) ct.entity).close();
 		}
-		
+
 	}
 }

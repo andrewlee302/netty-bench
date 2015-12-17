@@ -34,14 +34,14 @@ public class Latency {
 
 		// ======= warm up =========
 		int size = 1024;
-		ct.resize(size);
-		Thread.sleep(1000);
 		byte[] sendBuf = new byte[size];
 		System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
 		if (size > LARGE_MESSAGE_SIZE) {
 			loop = MAX_LOOP;
 			skip = MAX_SKIP;
 		}
+		ct.resize(size);
+		Thread.sleep(1000);
 		if (!isServer) {
 			for (int i = 0; i < loop + skip; i++) {
 				ct.SendRecv(sendBuf);
@@ -54,16 +54,16 @@ public class Latency {
 		// ====================
 		
 		for (size = 1; size <= MAX_MSG_SIZE; size *= 2) {
-			ct.resize(size);
-			Thread.sleep(1000);
 			sendBuf = new byte[size];
 			System.arraycopy(originSendBuffer, 0, sendBuf, 0, size);
 			if (size > LARGE_MESSAGE_SIZE) {
 				loop = MAX_LOOP;
 				skip = MAX_SKIP;
 			}
+			ct.resize(size);
+			Thread.sleep(1000);
 			if (!isServer) {
-				long start = 0;
+				long start = System.currentTimeMillis();
 				for (int i = 0; i < loop + skip; i++) {
 					if (i == skip)
 						start = System.currentTimeMillis();

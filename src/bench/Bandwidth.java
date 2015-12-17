@@ -6,7 +6,9 @@ public class Bandwidth {
 	final static int MAX_MSG_SIZE = 1 << 22;
 	final static int MAX_LOOP = 100;
 	final static int MAX_SKIP = 10;
+	final static int WINDOW_SIZE_LARGE = 64;
 	final static int LARGE_MESSAGE_SIZE = 8196;
+	static int window_size = 64;
 	static int loop = 10000;
 	static int skip = 1000;
 	static byte[] originSendBuffer;
@@ -66,14 +68,20 @@ public class Bandwidth {
 				for (int i = 0; i < loop + skip; i++) {
 					if (i == skip)
 						start = System.currentTimeMillis();
-					ct.SendRecv(sendBuf);
+					for (int j = 0; j < window_size; j++) {
+						// TODO Isend
+					}
+					// TODO Waitall and recv
 				}
 				long end = System.currentTimeMillis();
-				double latency = (end - start) * 1e3 / (2.0 * loop);
-				System.out.printf("%-10d%20.2f\n", size, latency);
+				double tmp = size * 1e3 /((end - start) * 1e6 * window_size * loop);
+				System.out.printf("%-10d%20.2f\n", size, tmp);
 			} else {
 				for (int i = 0; i < loop + skip; i++) {
-					ct.RecvSend(sendBuf);
+					for(int j = 0; j < window_size; j++) {
+						// TODO Irecv
+					}
+					// TODO waitall and send
 				}
 			}
 		}

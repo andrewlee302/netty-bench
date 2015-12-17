@@ -15,7 +15,6 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelOption;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.EventLoopGroup;
-import io.netty.channel.RecvByteBufAllocator;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
@@ -181,6 +180,9 @@ public class NettyCommContext {
 
 	public void Isend(byte[] sendBuf) {
 		channel.write(sendBuf);
+	}
+
+	public void Irecv() {
 	}
 
 	public void resize(int size) {

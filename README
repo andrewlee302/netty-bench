@@ -1,28 +1,10 @@
-Because Netty flush the message asynchronously, so we can't measure the transfer time only by the end of sender's flush time.
-The time transfer is based the interval between start send the first message and receive the last message.
+# Netty Point to Point Bandwidth & Latency Benchmark
+It's inspired by pt2pt benchmark in [osu-micro-benchmarks](http://mvapich.cse.ohio-state.edu/benchmarks/). We give a table to describe the bandwidth and latency under the diffrent communicating block size from 1B to 4M.
 
-messageNum = 5000
-flushNum = 1
-threadNum: 1~8
-messageSizeInKB: 1 2 4 8 16 32 64 128 256 512
+## Bandwidth
+Process a chunk of async comm operations in a step, then wait the async operations' ending. Do a series of such above steps to calculated the average communicating throughput under the given comm size.
 
-Notice: When the size of message increse up to 256K or even 512K and the messageNum is 5000, the rate for transferring become much slowly. Further more, if the product of message size and threadNum exceeds 512K, the receiver seems to block when receive the data. The reason is unknown.
 
-Some test failed, as follows:
-threadNum messageSizeInKB
-#1	512 much slowly
-2	256 much slowly
-#2	512 much slowly
-4	128 ok
-4	256 much slowly
-#4	512 much slowly
-8	64  ok
-8	128 ok
-8	256 much slowly
-#8	512 much slowly
+## Latency
+Process a series sync comm under the given comm size to calculate the average latency in a sync send-recv operation.
 
-So in the next tests, the parameters should set as follows:
-messageNum = 5000
-flushNum = 1
-threadNum: 1~8
-messageSizeInKB: 1 2 4 8 32 65 128

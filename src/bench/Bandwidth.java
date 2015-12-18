@@ -48,7 +48,6 @@ public class Bandwidth {
 		// NOTE: client decoding size is always 1 as initialized
 		if (!isServer) {
 			for (int i = 0; i < loop + skip; i++) {
-				if (i == skip)
 				for (int j = 0; j < window_size; j++) {
 					ct.Isend(sendBuf);
 				}
